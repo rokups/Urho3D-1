@@ -226,6 +226,7 @@ if (URHO3D_IN_ENGINE_BUILD)
     if (NOT CMAKE_HOST_WIN32)
         set_property (GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ${URHO3D_64BIT})
     endif ()
+    set (URHO3D_HOME ${CMAKE_BINARY_DIR})
 else ()
     set (URHO3D_LIB_TYPE "" CACHE STRING "Specify Urho3D library type, possible values are STATIC (default), SHARED, and MODULE; the last value is available for Emscripten only")
     set (URHO3D_HOME "" CACHE PATH "Path to Urho3D build tree or SDK installation location (downstream project only)")
@@ -234,11 +235,8 @@ else ()
     endif ()
     if (CMAKE_PROJECT_NAME MATCHES ^Urho3D-ExternalProject-)
         set (URHO3D_SSE ${HAVE_SSE})
-    else ()
-        # All Urho3D downstream projects require Urho3D library, so find Urho3D library here now
-        find_package (Urho3D REQUIRED)
-        include_directories (${URHO3D_INCLUDE_DIRS})
     endif ()
+    include (${URHO3D_HOME}/share/Urho3D/CMake/Targets/Urho3D-Targets.cmake)
 endif ()
 cmake_dependent_option (URHO3D_PACKAGING "Enable resources packaging support" FALSE "NOT WEB" TRUE)
 # Enable profiling by default. If disabled, autoprofileblocks become no-ops and the Profiler subsystem is not instantiated.
@@ -425,37 +423,12 @@ if (NOT URHO3D_LIB_TYPE STREQUAL SHARED AND NOT URHO3D_LIB_TYPE STREQUAL MODULE)
     if (MSVC)
         # This define will be baked into the export header for MSVC compiler
         set (URHO3D_STATIC_DEFINE 1)
-    else ()
-        # Only define it on the fly when necessary (both SHARED and STATIC libs can coexist) for other compiler toolchains
-        add_definitions (-DURHO3D_STATIC_DEFINE)
     endif ()
 endif ()
 
 if (URHO3D_DATABASE_ODBC)
     find_package (ODBC REQUIRED)
 endif ()
-
-# Define preprocessor macros (for building the Urho3D library) based on the configured build options
-foreach (OPT
-        URHO3D_ANGELSCRIPT
-        URHO3D_DATABASE
-        URHO3D_FILEWATCHER
-        URHO3D_IK
-        URHO3D_LOGGING
-        URHO3D_LUA
-        URHO3D_MINIDUMPS
-        URHO3D_NAVIGATION
-        URHO3D_NETWORK
-        URHO3D_PHYSICS
-        URHO3D_PROFILING
-        URHO3D_THREADING
-        URHO3D_URHO2D
-        URHO3D_WEBP
-        URHO3D_WIN32_CONSOLE)
-    if (${OPT})
-        add_definitions (-D${OPT})
-    endif ()
-endforeach ()
 
 # TODO: The logic below is earmarked to be moved into SDL's CMakeLists.txt when refactoring the library dependency handling, until then ensure the DirectX package is not being searched again in external projects such as when building LuaJIT library
 if (WIN32 AND NOT CMAKE_PROJECT_NAME MATCHES ^Urho3D-ExternalProject-)
@@ -501,7 +474,6 @@ endif ()
 if (APPLE)
     if (IOS)
         # iOS-specific setup
-        add_definitions (-DIOS)
         if (URHO3D_64BIT)
             set (CMAKE_OSX_ARCHITECTURES $(ARCHS_STANDARD))
         else ()
@@ -510,7 +482,6 @@ if (APPLE)
         endif ()
     elseif (TVOS)
         # tvOS-specific setup
-        add_definitions (-DTVOS)
         set (CMAKE_OSX_ARCHITECTURES $(ARCHS_STANDARD))
     else ()
         if (XCODE)

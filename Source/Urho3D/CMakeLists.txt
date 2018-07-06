@@ -383,6 +383,65 @@ if (URHO3D_DATABASE_ODBC)
 endif ()
 
 setup_library (${URHO3D_LIB_TYPE} ${EXCLUDE_FROM_ALL})
+
+if (URHO3D_LIB_TYPE STREQUAL STATIC AND NOT MSVC)
+    # Only define it on the fly when necessary (both SHARED and STATIC libs can coexist) for other compiler toolchains
+    target_compile_definitions (${TARGET_NAME} PUBLIC -DURHO3D_STATIC_DEFINE)
+endif ()
+
+# Define preprocessor macros (for building the Urho3D library) based on the configured build options
+foreach (OPT
+    URHO3D_ANGELSCRIPT
+    URHO3D_DATABASE
+    URHO3D_FILEWATCHER
+    URHO3D_IK
+    URHO3D_LOGGING
+    URHO3D_LUA
+    URHO3D_MINIDUMPS
+    URHO3D_NAVIGATION
+    URHO3D_NETWORK
+    URHO3D_PHYSICS
+    URHO3D_PROFILING
+    URHO3D_THREADING
+    URHO3D_URHO2D
+    URHO3D_WEBP
+    URHO3D_WIN32_CONSOLE)
+    if (${OPT})
+        target_compile_definitions (${TARGET_NAME} PUBLIC -D${OPT})
+    endif ()
+endforeach ()
+
+if (IOS)
+    target_compile_definitions (${TARGET_NAME} PUBLIC -DIOS)
+endif ()
+if (TVOS)
+    target_compile_definitions (${TARGET_NAME} PUBLIC -DTVOS)
+endif ()
+
+
+target_include_directories(${TARGET_NAME} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include/Urho3D/ThirdParty>
+    $<INSTALL_INTERFACE:include/Urho3D/ThirdParty>
+)
+
+if (URHO3D_PHYSICS)
+    # Bullet library depends on its own include dir to be added in the header search path
+    # This is more practical than patching its header files in many places to make them work with relative path
+    target_include_directories(${TARGET_NAME} PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include/Urho3D/ThirdParty/Bullet>
+        $<INSTALL_INTERFACE:include/Urho3D/ThirdParty/Bullet>
+    )
+endif ()
+if (URHO3D_LUA)
+    # ditto for Lua/LuaJIT
+    target_include_directories(${TARGET_NAME} PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include/Urho3D/ThirdParty/Lua${JIT}>
+        $<INSTALL_INTERFACE:include/Urho3D/ThirdParty/Lua${JIT}>
+    )
+endif ()
+
 if (NOT ANDROID AND NOT WEB)
     file (READ .soversion SOVERSION)
     string (STRIP ${SOVERSION} SOVERSION)
@@ -423,7 +482,8 @@ elseif (TVOS)
 elseif (EMSCRIPTEN)
     install (TARGETS ${TARGET_NAME} LIBRARY DESTINATION ${DEST_LIBRARY_DIR} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ ARCHIVE DESTINATION ${DEST_LIBRARY_DIR})
 else ()
-    install (TARGETS ${TARGET_NAME} RUNTIME DESTINATION ${DEST_RUNTIME_DIR} LIBRARY DESTINATION ${DEST_LIBRARY_DIR} ARCHIVE DESTINATION ${DEST_LIBRARY_DIR})
+    install (TARGETS ${TARGET_NAME} EXPORT Urho3D-Targets RUNTIME DESTINATION ${DEST_RUNTIME_DIR} LIBRARY DESTINATION ${DEST_LIBRARY_DIR} ARCHIVE DESTINATION ${DEST_LIBRARY_DIR})
+    install (EXPORT Urho3D-Targets DESTINATION share/Urho3D/CMake/Targets)
 endif ()
 if (WIN32 AND URHO3D_LIB_TYPE STREQUAL SHARED)
     set (URHO3D_DLL_INSTALLED TRUE)
